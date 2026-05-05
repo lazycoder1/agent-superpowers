@@ -1,0 +1,100 @@
+/* Mermaid figure + dual-theme toggle.
+ * Tailwind v4 utilities used here; rewrite as plain CSS if you're not on
+ * Tailwind. The crucial bits are the .mermaid-light / .mermaid-dark
+ * display toggles and the SVG sizing rules (override mermaid's pinned
+ * dimensions with !important). */
+
+figure.mermaid-wrap {
+  @apply relative my-8 w-full cursor-zoom-in rounded-lg border border-border/60 bg-muted/20 px-4 py-6 transition-colors hover:border-accent/60;
+}
+
+figure.mermaid-wrap::after {
+  content: "click to expand";
+  @apply pointer-events-none absolute right-3 bottom-2 rounded bg-background/80 px-2 py-0.5 text-xs text-foreground/60 opacity-0 transition-opacity;
+}
+
+figure.mermaid-wrap:hover::after {
+  @apply opacity-100;
+}
+
+figure.mermaid-wrap svg {
+  @apply mx-auto block h-auto;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+figure.mermaid-wrap .mermaid-light,
+figure.mermaid-wrap .mermaid-dark {
+  width: 100%;
+}
+
+figure.mermaid-wrap .mermaid-dark {
+  display: none;
+}
+
+html[data-theme="dark"] figure.mermaid-wrap .mermaid-light {
+  display: none;
+}
+
+html[data-theme="dark"] figure.mermaid-wrap .mermaid-dark {
+  display: block;
+}
+
+pre.mermaid-error {
+  @apply my-6 rounded border border-accent/60 bg-accent/10 p-3 text-sm text-accent;
+}
+
+/* ===== Mermaid lightbox modal ===== */
+.mermaid-modal {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+}
+.mermaid-modal[hidden] {
+  display: none;
+}
+.mermaid-modal__backdrop {
+  @apply absolute inset-0 bg-foreground/40 backdrop-blur-sm;
+}
+.mermaid-modal__panel {
+  @apply relative z-10 flex h-[min(90vh,900px)] w-[min(95vw,1200px)] flex-col rounded-lg border border-border bg-background shadow-2xl;
+}
+.mermaid-modal__toolbar {
+  @apply flex items-center justify-between border-b border-border px-4 py-2;
+  font-family:
+    "Victor Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+}
+.mermaid-modal__group {
+  @apply flex items-center gap-1;
+}
+.mermaid-modal__btn {
+  @apply rounded px-2 py-1 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground;
+}
+.mermaid-modal__btn:focus-visible {
+  @apply outline-2 outline-offset-1 outline-accent outline-dashed;
+}
+.mermaid-modal__zoom-label {
+  @apply min-w-12 text-center text-xs tabular-nums text-foreground/70;
+}
+.mermaid-modal__viewport {
+  @apply relative flex-1 cursor-grab overflow-hidden select-none;
+}
+.mermaid-modal__viewport.is-dragging {
+  @apply cursor-grabbing;
+}
+.mermaid-modal__stage {
+  @apply pointer-events-none absolute inset-0 flex items-center justify-center p-6;
+}
+.mermaid-modal__svg-host {
+  @apply origin-center transition-transform duration-100 ease-out;
+  width: 90%;
+  max-width: 100%;
+}
+.mermaid-modal__svg-host.is-dragging {
+  transition: none;
+}
+.mermaid-modal__svg-host > svg {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  display: block;
+}
