@@ -1,0 +1,286 @@
+@plugin '@tailwindcss/typography';
+
+@layer base {
+  /* ===== Override default Tailwind Typography styles ===== */
+  .app-prose {
+    @apply prose;
+
+    /* Body prose uses Source Serif 4 for long-form readability.
+       Headings, code, and tables stay in Victor Mono to preserve the
+       brand's typewriter chrome. */
+    font-family:
+      'Source Serif 4', ui-serif, Georgia, Cambria, 'Times New Roman', Times,
+      serif;
+    @apply text-[1.0625rem] leading-[1.75];
+
+    /* "Pull-quote" layout: the article container is wide so figures and code
+       blocks have room to breathe, but the prose text stays at a comfortable
+       reading length (~65 characters). */
+    & > p,
+    & > ul,
+    & > ol,
+    & > blockquote,
+    & > h1,
+    & > h2,
+    & > h3,
+    & > h4,
+    & > h5,
+    & > h6,
+    & > hr,
+    & > .table-wrapper,
+    & > table {
+      max-width: 68ch;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    & > figure.mermaid-wrap,
+    & > pre,
+    & > .astro-code {
+      max-width: 100%;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    th {
+      @apply mb-3 text-foreground;
+      font-family:
+        'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        monospace;
+    }
+
+    h3 {
+      @apply italic;
+    }
+
+    p,
+    strong,
+    ol,
+    ul,
+    figcaption,
+    table,
+    code {
+      @apply text-foreground;
+    }
+
+    /* Long-form paragraphs: larger size + relaxed leading for comfort */
+    p.long {
+      @apply text-[17px] leading-[1.8];
+    }
+
+    a {
+      @apply break-words text-foreground decoration-dashed underline-offset-4 hover:text-accent focus-visible:no-underline;
+    }
+
+    ul {
+      @apply overflow-x-clip;
+    }
+
+    li {
+      @apply marker:text-accent;
+    }
+
+    hr {
+      @apply border-border;
+    }
+
+    img {
+      @apply mx-auto border border-border;
+    }
+
+    figcaption {
+      @apply opacity-75;
+    }
+
+    table {
+      th,
+      td {
+        @apply border border-border p-2;
+      }
+
+      th {
+        @apply py-1.5;
+      }
+
+      code {
+        @apply break-all sm:break-normal;
+      }
+    }
+
+    code {
+      @apply rounded bg-muted/75 p-1 break-words text-foreground before:content-none after:content-none;
+      font-family:
+        'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        monospace;
+    }
+
+    pre,
+    .astro-code,
+    .astro-code code {
+      font-family:
+        'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        monospace;
+    }
+
+    .astro-code code {
+      @apply flex-[1_0_100%] bg-inherit p-0;
+    }
+
+    blockquote {
+      @apply border-s-accent/80 break-words opacity-80;
+    }
+
+    details {
+      @apply inline-block cursor-pointer text-foreground select-none [&_p]:hidden [&_ul]:!my-0;
+    }
+
+    summary {
+      @apply focus-visible:no-underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent focus-visible:outline-dashed;
+    }
+
+    pre {
+      @apply focus-visible:border-transparent focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-dashed;
+    }
+
+    /* Mermaid: each diagram is rendered twice at build time (one SVG per
+       theme) and toggled with CSS to avoid any runtime flicker. */
+    figure.mermaid-wrap {
+      @apply my-8 w-full border-0 bg-transparent p-0;
+    }
+
+    figure.mermaid-wrap svg {
+      @apply mx-auto block h-auto;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    figure.mermaid-wrap .mermaid-light,
+    figure.mermaid-wrap .mermaid-dark {
+      width: 100%;
+    }
+
+    figure.mermaid-wrap .mermaid-dark {
+      display: none !important;
+    }
+
+    html[data-theme="dark"] figure.mermaid-wrap .mermaid-light {
+      display: none !important;
+    }
+
+    html[data-theme="dark"] figure.mermaid-wrap .mermaid-dark {
+      display: block !important;
+    }
+
+    /* Subtle outline so the diagram has weight on the page background. */
+    figure.mermaid-wrap {
+      @apply relative cursor-zoom-in rounded-lg border border-border/60 bg-muted/20 px-4 py-6 transition-colors hover:border-accent/60;
+    }
+
+    figure.mermaid-wrap::after {
+      content: "click to expand";
+      @apply pointer-events-none absolute right-3 bottom-2 rounded bg-background/80 px-2 py-0.5 text-xs text-foreground/60 opacity-0 transition-opacity;
+    }
+
+    figure.mermaid-wrap:hover::after {
+      @apply opacity-100;
+    }
+
+    pre.mermaid-error {
+      @apply my-6 rounded border border-accent/60 bg-accent/10 p-3 text-sm text-accent;
+    }
+  }
+
+  /* ===== Mermaid lightbox modal ===== */
+  .mermaid-modal {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+  }
+  .mermaid-modal[hidden] {
+    display: none;
+  }
+  .mermaid-modal__backdrop {
+    @apply absolute inset-0 bg-foreground/40 backdrop-blur-sm;
+  }
+  .mermaid-modal__panel {
+    @apply relative z-10 flex h-[min(90vh,900px)] w-[min(95vw,1200px)] flex-col rounded-lg border border-border bg-background shadow-2xl;
+  }
+  .mermaid-modal__toolbar {
+    @apply flex items-center justify-between border-b border-border px-4 py-2;
+    font-family:
+      'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      monospace;
+  }
+  .mermaid-modal__group {
+    @apply flex items-center gap-1;
+  }
+  .mermaid-modal__btn {
+    @apply rounded px-2 py-1 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground;
+  }
+  .mermaid-modal__btn:focus-visible {
+    @apply outline-2 outline-offset-1 outline-accent outline-dashed;
+  }
+  .mermaid-modal__zoom-label {
+    @apply min-w-12 text-center text-xs tabular-nums text-foreground/70;
+  }
+  .mermaid-modal__viewport {
+    @apply relative flex-1 cursor-grab overflow-hidden select-none;
+  }
+  .mermaid-modal__viewport.is-dragging {
+    @apply cursor-grabbing;
+  }
+  .mermaid-modal__stage {
+    @apply pointer-events-none absolute inset-0 flex items-center justify-center p-6;
+  }
+  .mermaid-modal__svg-host {
+    @apply origin-center transition-transform duration-100 ease-out;
+    width: 90%;
+    max-width: 100%;
+  }
+  .mermaid-modal__svg-host.is-dragging {
+    transition: none;
+  }
+  .mermaid-modal__svg-host > svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    display: block;
+  }
+
+  /* Optional utilities for selective sans sections */
+  .prose-sans {
+    @apply font-sans tracking-wide leading-8;
+  }
+
+  .prose-long {
+    @apply leading-8;
+  }
+
+  /* ===== Code Blocks & Syntax Highlighting ===== */
+  .astro-code {
+    @apply flex border bg-(--shiki-light-bg) text-(--shiki-light) outline-border [&_span]:text-(--shiki-light);
+  }
+
+  html[data-theme="dark"] .astro-code {
+    @apply bg-(--shiki-dark-bg) text-(--shiki-dark) [&_span]:text-(--shiki-dark);
+  }
+
+  /* Styles for Shiki transformers */
+  /* https://shiki.style/packages/transformers */
+  .astro-code {
+    .line.diff.add {
+      @apply relative inline-block w-full bg-green-400/20 before:absolute before:-left-3 before:text-green-500 before:content-['+'];
+    }
+    .line.diff.remove {
+      @apply relative inline-block w-full bg-red-500/20 before:absolute before:-left-3 before:text-red-500 before:content-['-'];
+    }
+    .line.highlighted {
+      @apply inline-block w-full bg-slate-400/20;
+    }
+    .highlighted-word {
+      @apply rounded-sm border border-border px-0.5 py-px;
+    }
+  }
+}

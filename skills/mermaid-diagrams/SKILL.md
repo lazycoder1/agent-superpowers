@@ -151,14 +151,11 @@ RUN pnpm run build
 
 Adds ~250MB to the build stage. Final stage (nginx serving `dist/`) is unaffected.
 
-## Theming
+## Theming: per-class semantic palette + base theme
 
-The skill defaults to a **Tokyo Day / Tokyo Night** palette aligned with a translucent-accent fill style cribbed from Convinced's web app:
+Two layers, both per-theme:
 
-- Light: `rgba(177,92,0,0.10)` accent-soft node fills, `#b15c00` borders, `#6b7089` muted edges
-- Dark: `rgba(255,158,100,0.14)` accent-soft fills, `#ff9e64` borders, `#7aa2f7` Tokyo blue edges
-
-To change the palette, edit `lightTheme` and `darkTheme` objects in `rehype-mermaid-dual.ts`. The variables that matter most:
+**Layer 1 — base theme variables** apply to every node that doesn't have a class assignment. Defaults to a Tokyo Day / Tokyo Night feel with translucent-accent fills. Edit `lightTheme` and `darkTheme` in the plugin to change.
 
 | Variable | Effect |
 |---|---|
@@ -170,7 +167,22 @@ To change the palette, edit `lightTheme` and `darkTheme` objects in `rehype-merm
 | `actorBkg` / `actorBorder` / `signalColor` | Sequence diagrams |
 | `cScale0` / `cScale1` / `cScale2` | Timeline color cycling |
 
-User-authored `classDef ...` lines in the markdown source are stripped by `normaliseSource()` so the unified theme always wins. If you want per-node accents back, add them via `themeVariables` (consistent across diagrams) rather than per-diagram inline.
+**Layer 2 — semantic class palette** is the magic. The plugin ships a curated 6-color system (`purple`, `cream`, `mint`, `peach`, `blue`, `rose`, plus `neutral` fallback) with light + dark variants per slot. A class-name → slot map covers the obvious semantics:
+
+| Slot | Light fill / border / text | Dark fill / border / text | Class names |
+|---|---|---|---|
+| `purple` | `#ece6fa` / `#6e5fc4` / `#2d2466` | `#3d3275` / `#7a6dd8` / `#e8e2ff` | src, source, sources, input, ing, ingestion, new |
+| `cream` | `#f5efd9` / `#a89065` / `#4d3f1f` | `#2a2418` / `#9d8c5e` / `#e8dfb8` | store, storage, data, cache, db, wiki, old, field |
+| `mint` | `#daf0e6` / `#3da882` / `#1a4a3a` | `#1a3d2f` / `#3da882` / `#dff2ea` | agent, compute, success, good, pass, verified, approved, surf, has, bsys |
+| `peach` | `#f8dcb6` / `#c47138` / `#7a3e15` | `#5a3018` / `#d68c5e` / `#fde8d4` | out, output, bad, error, fail, conflict, catch, warn, miss |
+| `blue` | `#d9e8f7` / `#4a78b5` / `#1f3a5e` | `#1a2a45` / `#4a78b5` / `#d9e8f7` | decision, judge, route, branch, rec |
+| `rose` | `#f9d9e2` / `#b85a78` / `#5e2a3a` | `#4a1f2f` / `#b85a78` / `#f9d9e2` | heading, title, highlight, important |
+
+**How it works**: `normaliseSource()` strips any user-authored `classDef` lines, scans the source for `:::className` references and `class X cls` statements, then injects a fresh `classDef` per referenced class using the active theme's palette. Mermaid renders nodes with the right colors per theme, no CSS overrides needed.
+
+**Adding a new semantic class**: add it to the `classNameToSlot` map in `rehype-mermaid-dual.ts`. Unknown class names fall back to `neutral` (a desaturated grey) — visible enough to spot in QA, neutral enough to not break the diagram.
+
+**Authoring**: in the markdown, just use semantic class names (`Calls["Sales calls"]:::src`, `Store[(Vector store)]:::store`, etc.) — don't bother with `classDef ... fill:#xxx` lines, the plugin will own the colors. If you DO write a `classDef`, it gets stripped.
 
 ## Source normalization
 

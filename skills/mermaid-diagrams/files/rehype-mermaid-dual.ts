@@ -112,15 +112,156 @@ const sharedConfig = {
 };
 
 /**
- * Drop user-authored ``classDef`` lines so every diagram inherits the unified
- * theme. Keeps ``class X cls`` assignments — they just become no-ops, which is
- * fine: mermaid falls back to primary/secondary/tertiary cycling.
+ * Curated palette of 6 semantic colors. Each slot has light + dark variants.
+ * Modeled on the lavender/cream/mint/peach feel of beautiful-mermaid-style
+ * diagrams: pastels in light mode, deep saturated colors in dark mode.
+ */
+type PaletteSlot =
+  | "purple"
+  | "cream"
+  | "mint"
+  | "peach"
+  | "blue"
+  | "rose"
+  | "neutral";
+
+interface NodeColors {
+  fill: string;
+  stroke: string;
+  text: string;
+}
+
+const lightPalette: Record<PaletteSlot, NodeColors> = {
+  purple: { fill: "#ece6fa", stroke: "#6e5fc4", text: "#2d2466" },
+  cream: { fill: "#f5efd9", stroke: "#a89065", text: "#4d3f1f" },
+  mint: { fill: "#daf0e6", stroke: "#3da882", text: "#1a4a3a" },
+  peach: { fill: "#f8dcb6", stroke: "#c47138", text: "#7a3e15" },
+  blue: { fill: "#d9e8f7", stroke: "#4a78b5", text: "#1f3a5e" },
+  rose: { fill: "#f9d9e2", stroke: "#b85a78", text: "#5e2a3a" },
+  neutral: { fill: "#ebebeb", stroke: "#9da0a8", text: "#343b58" },
+};
+
+const darkPalette: Record<PaletteSlot, NodeColors> = {
+  purple: { fill: "#3d3275", stroke: "#7a6dd8", text: "#e8e2ff" },
+  cream: { fill: "#2a2418", stroke: "#9d8c5e", text: "#e8dfb8" },
+  mint: { fill: "#1a3d2f", stroke: "#3da882", text: "#dff2ea" },
+  peach: { fill: "#5a3018", stroke: "#d68c5e", text: "#fde8d4" },
+  blue: { fill: "#1a2a45", stroke: "#4a78b5", text: "#d9e8f7" },
+  rose: { fill: "#4a1f2f", stroke: "#b85a78", text: "#f9d9e2" },
+  neutral: { fill: "#2a2a2a", stroke: "#565f89", text: "#c0caf5" },
+};
+
+/**
+ * Map common class names to palette slots. Anything not listed falls back to
+ * `neutral`. Add to this map as new semantic class names show up in posts.
+ */
+const classNameToSlot: Record<string, PaletteSlot> = {
+  // Sources / inputs / ingestion
+  src: "purple",
+  source: "purple",
+  sources: "purple",
+  input: "purple",
+  ing: "purple",
+  ingestion: "purple",
+  new: "purple",
+  // Storage / data / wiki
+  store: "cream",
+  storage: "cream",
+  data: "cream",
+  cache: "cream",
+  db: "cream",
+  wiki: "cream",
+  old: "cream",
+  field: "cream",
+  // Agents / success / verified
+  agent: "mint",
+  compute: "mint",
+  success: "mint",
+  good: "mint",
+  pass: "mint",
+  verified: "mint",
+  approved: "mint",
+  surf: "mint",
+  has: "mint",
+  bsys: "mint",
+  out1: "mint",
+  // Output / bad / conflict
+  out: "peach",
+  output: "peach",
+  bad: "peach",
+  error: "peach",
+  fail: "peach",
+  conflict: "peach",
+  catch: "peach",
+  warn: "peach",
+  miss: "peach",
+  out3: "peach",
+  // Decision / routing
+  decision: "blue",
+  judge: "blue",
+  route: "blue",
+  branch: "blue",
+  rec: "blue",
+  out2: "blue",
+  out4: "blue",
+  // Headings / highlights
+  heading: "rose",
+  title: "rose",
+  highlight: "rose",
+  important: "rose",
+};
+
+/**
+ * Strip user-authored classDef lines so we own the palette. Their semantic
+ * `:::className` references stay intact — we re-define the colors below.
  */
 function stripClassDefs(source: string): string {
   return source
     .split("\n")
     .filter(line => !line.trim().startsWith("classDef "))
     .join("\n");
+}
+
+/**
+ * Find every `:::className` reference (and `class X,Y className` statements)
+ * so we know which classDef lines to inject.
+ */
+function extractClassNames(source: string): Set<string> {
+  const names = new Set<string>();
+  const inlineRe = /:::\s*([A-Za-z_][\w-]*)/g;
+  for (const m of source.matchAll(inlineRe)) names.add(m[1]);
+  const stmtRe = /^\s*class\s+[\w,\s]+\s+([A-Za-z_][\w-]*)\s*$/gm;
+  for (const m of source.matchAll(stmtRe)) names.add(m[1]);
+  return names;
+}
+
+/**
+ * Inject themed classDef lines for every class referenced in the source.
+ * Mermaid's `classDef name fill:X,stroke:Y,color:Z,stroke-width:1.5px` is
+ * the format. We append after the diagram declaration line so they apply.
+ */
+function injectClassDefs(
+  source: string,
+  palette: Record<PaletteSlot, NodeColors>,
+): string {
+  const classNames = extractClassNames(source);
+  if (classNames.size === 0) return source;
+
+  const lines: string[] = [];
+  for (const name of classNames) {
+    const slot = classNameToSlot[name] ?? "neutral";
+    const c = palette[slot];
+    lines.push(
+      `classDef ${name} fill:${c.fill},stroke:${c.stroke},color:${c.text},stroke-width:1.5px`,
+    );
+  }
+
+  // Insert after the first line (the diagram declaration like "flowchart LR").
+  const sourceLines = source.split("\n");
+  const firstNonEmpty = sourceLines.findIndex(l => l.trim().length > 0);
+  if (firstNonEmpty === -1) return source;
+  sourceLines.splice(firstNonEmpty + 1, 0, ...lines);
+  return sourceLines.join("\n");
 }
 
 /**
@@ -134,8 +275,14 @@ function stripBacktickNewlines(source: string): string {
   );
 }
 
-function normaliseSource(source: string): string {
-  return stripBacktickNewlines(stripClassDefs(source));
+function normaliseSource(
+  source: string,
+  palette: Record<PaletteSlot, NodeColors>,
+): string {
+  return injectClassDefs(
+    stripBacktickNewlines(stripClassDefs(source)),
+    palette,
+  );
 }
 
 /**
@@ -180,7 +327,7 @@ function decodeEntities(s: string): string {
 interface Target {
   parent: Element | Root;
   index: number;
-  source: string;
+  raw: string;
 }
 
 export function rehypeMermaidDual() {
@@ -194,24 +341,24 @@ export function rehypeMermaidDual() {
       const classes = Array.isArray(cls) ? cls : cls ? [String(cls)] : [];
       if (!classes.includes("mermaid")) return;
 
-      const raw = decodeEntities(getInnerText(node));
       targets.push({
         parent: parent as Element | Root,
         index,
-        source: normaliseSource(raw),
+        raw: decodeEntities(getInnerText(node)),
       });
     });
 
     if (targets.length === 0) return;
 
     const renderer = createMermaidRenderer();
-    const sources = targets.map(t => t.source);
+    const lightSources = targets.map(t => normaliseSource(t.raw, lightPalette));
+    const darkSources = targets.map(t => normaliseSource(t.raw, darkPalette));
 
     const [lightResults, darkResults] = await Promise.all([
-      renderer(sources, {
+      renderer(lightSources, {
         mermaidConfig: { ...sharedConfig, themeVariables: lightTheme },
       }),
-      renderer(sources, {
+      renderer(darkSources, {
         mermaidConfig: { ...sharedConfig, themeVariables: darkTheme },
       }),
     ]);
