@@ -292,13 +292,24 @@ function normaliseSource(
  * ``id="mermaid-N"`` so two SVGs in the same <figure> don't collide.
  */
 function fitSvg(svg: string, suffix: string): string {
-  return svg
+  // Mermaid's inline <style> block uses ID-scoped selectors like
+  // `#mermaid-0 .edgePath .path { stroke: ... }`. Two SVGs in the same
+  // figure both ship with id="mermaid-0", so we need a per-render suffix
+  // — and we MUST rewrite every occurrence (id attrs, url() refs,
+  // href anchors, AND the inline CSS selectors) so the styles still match.
+  // Lookahead `(?![\w-])` keeps us from double-suffixing or matching
+  // partial number prefixes (e.g. mermaid-1 inside mermaid-10).
+  const renamed = svg.replace(
+    /mermaid-(\d+)(?![\w-])/g,
+    (_m, n) => `mermaid-${n}-${suffix}`,
+  );
+
+  // Strip mermaid's pinned width/height/max-width and inject responsive
+  // sizing so the SVG fills its container instead of capping at natural size.
+  return renamed
     .replace(/(<svg[^>]*?)\s*style="[^"]*"/i, "$1")
     .replace(/(<svg[^>]*?)\s*width="[^"]*"/i, "$1")
     .replace(/(<svg[^>]*?)\s*height="[^"]*"/i, "$1")
-    .replace(/id="(mermaid-[^"]+)"/g, (_m, id) => `id="${id}-${suffix}"`)
-    .replace(/url\(#(mermaid-[^)]+)\)/g, (_m, id) => `url(#${id}-${suffix})`)
-    .replace(/href="#(mermaid-[^"]+)"/g, (_m, id) => `href="#${id}-${suffix}"`)
     .replace(
       /<svg\b/i,
       '<svg style="width:100%;height:auto;max-width:100%;display:block"',

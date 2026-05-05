@@ -158,6 +158,19 @@
       max-width: 100% !important;
     }
 
+    /* Mermaid uses <foreignObject> + HTML labels for nice typography.
+       Tailwind Typography's prose styles (margin on <p>, max-width, etc.)
+       leak into those labels and push text out of the foreignObject's
+       fixed height — single-line labels end up completely clipped. Reset. */
+    figure.mermaid-wrap foreignObject p,
+    figure.mermaid-wrap foreignObject span,
+    figure.mermaid-wrap foreignObject div {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+      line-height: 1.4 !important;
+    }
+
     figure.mermaid-wrap .mermaid-light,
     figure.mermaid-wrap .mermaid-dark {
       width: 100%;
