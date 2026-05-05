@@ -183,7 +183,6 @@ const classNameToSlot: Record<string, PaletteSlot> = {
   approved: "mint",
   surf: "mint",
   has: "mint",
-  bsys: "mint",
   out1: "mint",
   // Output / bad / conflict
   out: "peach",
@@ -196,12 +195,13 @@ const classNameToSlot: Record<string, PaletteSlot> = {
   warn: "peach",
   miss: "peach",
   out3: "peach",
-  // Decision / routing
+  // Decision / routing / belief-system upgrades
   decision: "blue",
   judge: "blue",
   route: "blue",
   branch: "blue",
   rec: "blue",
+  bsys: "blue",
   out2: "blue",
   out4: "blue",
   // Headings / highlights
