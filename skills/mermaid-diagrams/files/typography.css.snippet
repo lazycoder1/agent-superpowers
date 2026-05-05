@@ -13,32 +13,9 @@
       serif;
     @apply text-[1.0625rem] leading-[1.75];
 
-    /* "Pull-quote" layout: the article container is wide so figures and code
-       blocks have room to breathe, but the prose text stays at a comfortable
-       reading length (~65 characters). */
-    & > p,
-    & > ul,
-    & > ol,
-    & > blockquote,
-    & > h1,
-    & > h2,
-    & > h3,
-    & > h4,
-    & > h5,
-    & > h6,
-    & > hr,
-    & > .table-wrapper,
-    & > table {
-      max-width: 68ch;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    & > figure.mermaid-wrap,
-    & > pre,
-    & > .astro-code {
-      max-width: 100%;
-    }
+    /* Prose runs the full article width — figures and code blocks already
+       use 100%. The article container itself (max-w-5xl on PostDetails)
+       is the only constraint. */
 
     h1,
     h2,
