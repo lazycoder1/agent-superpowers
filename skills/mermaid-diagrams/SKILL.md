@@ -109,7 +109,36 @@ Done in `fitSvg()`.
 
 **Fix**: Always `rm -rf dist .astro node_modules/.astro` before testing plugin changes. Add a `dev:clean` npm script. Worth a sticky note on the monitor.
 
-### 8. `@types/hast` and `@types/mdast` missing on clean CI
+### 8. Production article body silently goes blank on Vercel/Netlify
+
+**Symptom**: Local build is fine. After deploy, the post page renders the title, date, tags, and chrome perfectly — but the **entire article body is empty**, including all the prose between diagrams. `<article>...</article>` ships with whitespace inside.
+
+**Cause**: `mermaid-isomorphic`'s renderer THROWS (not returns a per-source rejected result) when Playwright's Chromium binary is missing. The throw bubbles up through Astro's markdown pipeline and silently discards the entire article content. CI hosts that run their own build (Vercel, Netlify) don't run your Dockerfile, so `playwright install chromium` never runs.
+
+**Fix** — both layers:
+
+1. **Install Chromium in the build command** so the host actually has it:
+   ```json
+   "build": "playwright install chromium && astro check && astro build && ..."
+   ```
+   Don't rely on the Dockerfile; CI builds skip it.
+
+2. **Wrap the renderer call in try/catch** so a missing Chromium degrades gracefully instead of nuking the article:
+   ```ts
+   let lightResults, darkResults;
+   try {
+     [lightResults, darkResults] = await Promise.all([renderer(lightSources, ...), renderer(darkSources, ...)]);
+   } catch (err) {
+     console.error("[rehypeMermaidDual] renderer crashed:", err);
+     const reason = err instanceof Error ? err.message : String(err);
+     const rejected = targets.map(() => ({ status: "rejected" as const, reason }));
+     lightResults = rejected;
+     darkResults = rejected;
+   }
+   ```
+   And make the per-diagram fallback render the original mermaid source as a `<pre><code class="language-mermaid">` inside a `<details>` so the post survives even if every render fails. See `files/rehype-mermaid-dual.ts`.
+
+### 9. `@types/hast` and `@types/mdast` missing on clean CI
 
 **Symptom**: Local `pnpm build` passes. Vercel/Netlify/fresh-Docker build fails with `Cannot find module 'hast' / 'mdast'` from `astro check`.
 
@@ -117,7 +146,7 @@ Done in `fitSvg()`.
 
 **Fix**: Always install `@types/hast` and `@types/mdast` as explicit devDependencies. Don't rely on transitive presence.
 
-### 9. `\n` literals in backtick markdown labels render as the letter "n"
+### 10. `\n` literals in backtick markdown labels render as the letter "n"
 
 **Symptom**: A label like `"\`a\nbetter\`"` in mermaid source renders as **"abetter"** instead of "a / better".
 

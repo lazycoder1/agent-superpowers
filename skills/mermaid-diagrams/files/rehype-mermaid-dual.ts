@@ -365,14 +365,39 @@ export function rehypeMermaidDual() {
     const lightSources = targets.map(t => normaliseSource(t.raw, lightPalette));
     const darkSources = targets.map(t => normaliseSource(t.raw, darkPalette));
 
-    const [lightResults, darkResults] = await Promise.all([
-      renderer(lightSources, {
-        mermaidConfig: { ...sharedConfig, themeVariables: lightTheme },
-      }),
-      renderer(darkSources, {
-        mermaidConfig: { ...sharedConfig, themeVariables: darkTheme },
-      }),
-    ]);
+    // mermaid-isomorphic boots a real headless Chromium under the hood. If
+    // Playwright's browser binary isn't installed (e.g. on a CI host that
+    // skipped `playwright install`), the call THROWS rather than returning
+    // a rejected per-source result. Without this catch, the throw bubbles
+    // up to Astro's markdown pipeline and silently blanks the entire
+    // article body — title and chrome render but every paragraph and
+    // diagram disappears. Render fallbacks for every diagram instead.
+    let lightResults: Awaited<ReturnType<typeof renderer>>;
+    let darkResults: Awaited<ReturnType<typeof renderer>>;
+    try {
+      [lightResults, darkResults] = await Promise.all([
+        renderer(lightSources, {
+          mermaidConfig: { ...sharedConfig, themeVariables: lightTheme },
+        }),
+        renderer(darkSources, {
+          mermaidConfig: { ...sharedConfig, themeVariables: darkTheme },
+        }),
+      ]);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "[rehypeMermaidDual] renderer crashed (Chromium missing?):",
+        err,
+      );
+      const reason =
+        err instanceof Error ? err.message : String(err);
+      const rejected = targets.map(() => ({
+        status: "rejected" as const,
+        reason,
+      }));
+      lightResults = rejected;
+      darkResults = rejected;
+    }
 
     for (let i = targets.length - 1; i >= 0; i--) {
       const { parent, index } = targets[i];
@@ -386,9 +411,21 @@ export function rehypeMermaidDual() {
             : dark.status === "rejected"
               ? String(dark.reason)
               : "unknown";
-        const fallback = `<pre class="mermaid-error">Mermaid render failed: ${reason
+        const escapedSource = targets[i].raw
           .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")}</pre>`;
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        const escapedReason = reason
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;");
+        // Show the original source as a code block so the post content
+        // survives even if every mermaid render fails. Tiny error caption
+        // for debuggability.
+        const fallback =
+          `<details class="mermaid-error" open>` +
+          `<summary>Mermaid diagram (render failed: ${escapedReason})</summary>` +
+          `<pre><code class="language-mermaid">${escapedSource}</code></pre>` +
+          `</details>`;
         const fallbackNodes = fromHtml(fallback, { fragment: true })
           .children as Element[];
         parent.children.splice(index, 1, ...fallbackNodes);
