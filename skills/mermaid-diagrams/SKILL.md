@@ -77,11 +77,13 @@ The full working code lives in `files/`:
 ### Required deps
 
 ```sh
-pnpm add -D rehype-raw mermaid-isomorphic playwright unist-util-visit hast-util-from-html
+pnpm add -D rehype-raw mermaid-isomorphic playwright unist-util-visit hast-util-from-html @types/hast @types/mdast
 pnpm exec playwright install --with-deps chromium
 ```
 
 `mermaid-isomorphic` drives Playwright's Chromium to actually run mermaid's renderer in a headless DOM. There is no SSR mermaid path that avoids a real browser; mermaid uses DOM APIs.
+
+**Don't skip `@types/hast` and `@types/mdast`.** They're transitively present in many local node_modules, so local builds pass — but on a clean CI install (Vercel, Netlify, fresh Docker) they're missing and `astro check` fails with `Cannot find module 'hast' / 'mdast'`. Burned an hour on this on the first deploy. Always install them explicitly.
 
 ### Astro config wiring
 

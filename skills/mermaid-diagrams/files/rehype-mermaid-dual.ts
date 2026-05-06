@@ -318,7 +318,7 @@ function fitSvg(svg: string, suffix: string): string {
 
 function getInnerText(node: Element): string {
   return node.children
-    .map(child => {
+    .map((child: Element["children"][number]): string => {
       if (child.type === "text") return (child as Text).value;
       if (child.type === "element") return getInnerText(child as Element);
       return "";
