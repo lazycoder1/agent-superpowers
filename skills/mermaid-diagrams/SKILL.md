@@ -23,10 +23,107 @@ Three principles, in priority order:
 2. **Dual render for theme-perfect colors.** Mermaid bakes colors into the SVG at render time. Trying to recolor a single SVG via CSS in the other theme always loses (specificity wars with mermaid's inline `<style>`). Render twice — once per theme — and CSS-toggle which is visible. Build cost doubles per diagram (~1 sec each for 9 diagrams in a real post). Worth it.
 3. **Strip mermaid's hardcoded SVG dimensions.** Mermaid emits `style="max-width:Xpx"` clamped to the diagram's natural size, which leaves diagrams floating tiny in a wide article. Strip `width`/`height`/`style` attrs from the SVG and inject `width:100%;height:auto;max-width:100%;display:block` so the SVG fills its container.
 
-Two gotchas that will eat hours if you don't know them:
+## Gotchas — bugs we actually shipped, do not repeat
 
-- **Astro caches markdown→HTML output.** When iterating on a remark/rehype plugin, you MUST clear `.astro`, `node_modules/.astro`, and `dist/` before rebuilding, or your changes silently won't apply. Add this to your dev loop.
-- **Duplicate SVG IDs.** Mermaid IDs are sequential (`mermaid-0`, `mermaid-1`...), and each `createMermaidRenderer()` call resets the counter. Two SVGs in the same `<figure>` collide. Suffix the IDs (e.g. `mermaid-0-l5` for "diagram 5, light variant") and rewrite all internal `url(#id)` and `href="#id"` references to match.
+Every one of these cost real time. Read before touching the plugin.
+
+### 1. Fat black blob arrows on curvy edges
+
+**Symptom**: Most arrows render as thin grey lines, but edges with steep curves (top-of-column → middle, bottom-of-column → middle) render as **fat black filled blobs** instead of thin strokes.
+
+**Cause**: Mermaid's inline `<style>` block uses ID-scoped selectors:
+```css
+#mermaid-0 .edgePath .path { stroke: #6b7089; stroke-width: 1px; }
+#mermaid-0 .flowchart-link { fill: none; }
+```
+If you rewrite the SVG root id from `mermaid-0` to `mermaid-0-l5` (necessary for de-duping — see #2) but **don't also rewrite the inline CSS selectors**, those rules match nothing. Edges fall back to SVG defaults (`fill="black"`, no `fill: none`), and `curve: basis` paths with steep deltas render as filled regions instead of strokes — visually fat black blobs.
+
+**Fix**: ONE regex pass that rewrites every `mermaid-N` occurrence in the SVG — attributes, `url(#id)` refs, `href="#id"` anchors, AND CSS selectors. Use a negative lookahead to avoid matching partial number prefixes:
+```ts
+svg.replace(/mermaid-(\d+)(?![\w-])/g, (_, n) => `mermaid-${n}-${suffix}`)
+```
+
+### 2. Duplicate SVG IDs across light + dark renders
+
+**Symptom**: After dual rendering, both SVGs in a `<figure>` ship with `id="mermaid-0"`. Browsers handle duplicate IDs unpredictably; SVG `<use>` and arrow markers can break.
+
+**Cause**: Mermaid IDs are sequential (`mermaid-0`, `mermaid-1`...) per `createMermaidRenderer()` call. Calling the renderer twice (once per theme) resets the counter, so both batches start at 0.
+
+**Fix**: Suffix all IDs per render (`-l0`, `-l1`, ... for light; `-d0`, `-d1`, ... for dark) using the regex above. Done in `fitSvg()`.
+
+### 3. Empty boxes / clipped labels
+
+**Symptom**: Single-line node labels (e.g. `Slack["Slack threads"]`) render as **empty boxes**. Two-line labels (those with `<br/>`) render but feel cramped.
+
+**Cause**: Tailwind Typography's `.prose p { margin: 1.25em 0 }` (~20px top + 20px bottom) applies to ANY `<p>` descendant of `.prose`, including `<p>` inside mermaid's `<foreignObject>` labels. Single-line labels have foreignObject height ~22.5px — 40px of margin completely clips the text. Two-line labels (45px tall) survive barely.
+
+**Fix**: Reset margin/padding/max-width for prose-styled elements inside foreignObjects:
+```css
+figure.mermaid-wrap foreignObject p,
+figure.mermaid-wrap foreignObject span,
+figure.mermaid-wrap foreignObject div {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  line-height: 1.4 !important;
+}
+```
+
+### 4. Tiny diagrams in a wide container
+
+**Symptom**: Diagram renders at ~300px wide inside an 800px article. Looks lost.
+
+**Cause**: Mermaid emits `style="max-width: Xpx"` clamped to the diagram's natural rendered size. SVG with `width="100%"` + `max-width: 600px` will never grow past 600px even if the container is 1200px.
+
+**Fix**: Strip `style/width/height` attrs from the SVG root and inject responsive sizing:
+```ts
+svg
+  .replace(/(<svg[^>]*?)\s*style="[^"]*"/i, "$1")
+  .replace(/(<svg[^>]*?)\s*width="[^"]*"/i, "$1")
+  .replace(/(<svg[^>]*?)\s*height="[^"]*"/i, "$1")
+  .replace(/<svg\b/i, '<svg style="width:100%;height:auto;max-width:100%;display:block"');
+```
+Done in `fitSvg()`.
+
+### 5. Two disconnected graphs render side-by-side
+
+**Symptom**: A single `mermaid` block contains two unrelated trees (e.g. "Typical X has these properties" and "Better Y has these properties"). Mermaid renders them **horizontally adjacent**, producing a 2000px-wide diagram with tiny illegible text — even with `flowchart TB`.
+
+**Cause**: Mermaid's layout engine arranges disconnected subgraphs **side by side regardless of `TB`/`LR` orientation** when it can't find a single connected component to lay out.
+
+**Fix**: Split into two `mermaid` blocks. Each will render as its own figure, stacked naturally by document flow. (Forcing a stack via invisible link `A ~~~ B` works but is hacky and the figures still share a frame, losing the natural section break.) Add a small bold sub-heading above each so the reader knows what they're comparing.
+
+### 6. Uniform-grey diagrams when you strip user classDef
+
+**Symptom**: After stripping user-authored `classDef ... fill:#xxx` lines, every node renders the same colour. Looks like garbage.
+
+**Cause**: Stripping `classDef` removes the colour assignments but NOT the `:::className` references on each node. With no matching classDef, mermaid falls back to `mainBkg` for every node — they all look identical.
+
+**Fix**: Strip user classDefs AND inject your own per-theme classDefs based on a curated semantic palette (see "Theming" section below). Scan the source for `:::className` patterns and `class X cls` statements, map each class name to a palette slot, and emit fresh `classDef name fill:X,stroke:Y,color:Z,stroke-width:1.5px` lines per render.
+
+### 7. Astro caches markdown → HTML aggressively
+
+**Symptom**: You change a remark/rehype plugin, rebuild, see no change. Add `console.log`, see no log. Add a marker attribute, doesn't appear in output. Conclude the plugin isn't running. Spend an hour debugging.
+
+**Cause**: Astro's content collection cache + `node_modules/.astro` + `dist/` all hold stale compiled output. Plugin source changes don't invalidate the cache.
+
+**Fix**: Always `rm -rf dist .astro node_modules/.astro` before testing plugin changes. Add a `dev:clean` npm script. Worth a sticky note on the monitor.
+
+### 8. `@types/hast` and `@types/mdast` missing on clean CI
+
+**Symptom**: Local `pnpm build` passes. Vercel/Netlify/fresh-Docker build fails with `Cannot find module 'hast' / 'mdast'` from `astro check`.
+
+**Cause**: `unist-util-visit`, `hast-util-from-html`, etc. transitively pull in those types in many local node_modules layouts, but a clean install may not. The plugin imports `import type { Element, Text } from "hast"` directly.
+
+**Fix**: Always install `@types/hast` and `@types/mdast` as explicit devDependencies. Don't rely on transitive presence.
+
+### 9. `\n` literals in backtick markdown labels render as the letter "n"
+
+**Symptom**: A label like `"\`a\nbetter\`"` in mermaid source renders as **"abetter"** instead of "a / better".
+
+**Cause**: Mermaid's parser reads `\n` inside backtick markdown strings as the literal two characters `\` + `n`, not a newline. The first character (`\`) gets dropped silently.
+
+**Fix**: Pre-process source to replace `\n` inside backtick labels with a single space. Let `wrappingWidth: 160` handle line breaks instead. Done in `stripBacktickNewlines()`.
 
 ## Architecture (for any SSG, not just Astro)
 
