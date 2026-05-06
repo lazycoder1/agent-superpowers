@@ -1,9 +1,10 @@
-/* Mermaid figure + dual-theme toggle.
- * Tailwind v4 utilities used here; rewrite as plain CSS if you're not on
- * Tailwind. The crucial bits are the .mermaid-light / .mermaid-dark
- * display toggles and the SVG sizing rules (override mermaid's pinned
- * dimensions with !important). */
+/* Mermaid figure + lightbox modal styles. Drop this into your global
+ * stylesheet (or a CSS layer it). Tailwind v4 utility classes are used
+ * via @apply — strip those if you're not on Tailwind. The CSS variables
+ * (--background, --foreground, --accent, --muted, --border) come from
+ * your site theme; map them to whatever you have. */
 
+/* ── Figure wrapper (the renderer creates <figure class="mermaid-wrap">)─ */
 figure.mermaid-wrap {
   @apply relative my-8 w-full cursor-zoom-in rounded-lg border border-border/60 bg-muted/20 px-4 py-6 transition-colors hover:border-accent/60;
 }
@@ -23,28 +24,29 @@ figure.mermaid-wrap svg {
   max-width: 100% !important;
 }
 
-figure.mermaid-wrap .mermaid-light,
-figure.mermaid-wrap .mermaid-dark {
-  width: 100%;
+/* CRITICAL: Tailwind Typography's `.prose p { margin: 1.25em 0 }` leaks
+ * into mermaid <foreignObject> labels and clips single-line text out of
+ * the box. Reset it. */
+figure.mermaid-wrap foreignObject p,
+figure.mermaid-wrap foreignObject span,
+figure.mermaid-wrap foreignObject div {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  line-height: 1.4 !important;
 }
 
-figure.mermaid-wrap .mermaid-dark {
-  display: none;
+/* Failure fallback — renderer emits this if mermaid.render() throws. */
+details.mermaid-error {
+  @apply my-6 rounded border border-accent/60 bg-accent/10 p-3 text-sm;
 }
 
-html[data-theme="dark"] figure.mermaid-wrap .mermaid-light {
-  display: none;
+/* Pre block before the renderer touches it (FOUC guard). */
+pre.mermaid {
+  @apply my-8 rounded-lg border border-border/60 bg-muted/20 p-4 font-mono text-xs whitespace-pre-wrap opacity-50;
 }
 
-html[data-theme="dark"] figure.mermaid-wrap .mermaid-dark {
-  display: block;
-}
-
-pre.mermaid-error {
-  @apply my-6 rounded border border-accent/60 bg-accent/10 p-3 text-sm text-accent;
-}
-
-/* ===== Mermaid lightbox modal ===== */
+/* ── Lightbox modal ──────────────────────────────────────────────────── */
 .mermaid-modal {
   @apply fixed inset-0 z-50 flex items-center justify-center;
 }
@@ -58,10 +60,7 @@ pre.mermaid-error {
   @apply relative z-10 flex h-[min(90vh,900px)] w-[min(95vw,1200px)] flex-col rounded-lg border border-border bg-background shadow-2xl;
 }
 .mermaid-modal__toolbar {
-  @apply flex items-center justify-between border-b border-border px-4 py-2;
-  font-family:
-    "Victor Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    monospace;
+  @apply flex items-center justify-between border-b border-border px-4 py-2 font-mono;
 }
 .mermaid-modal__group {
   @apply flex items-center gap-1;

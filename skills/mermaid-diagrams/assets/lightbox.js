@@ -1,37 +1,13 @@
-/* Mermaid lightbox: click any rendered diagram to open a modal with
- * zoom + pan. Picks the SVG matching the active theme, clones it, and
- * applies transforms to the host element via inline style.
+/* Mermaid lightbox: click any rendered <figure class="mermaid-wrap">
+ * to open a modal with zoom + pan. Vanilla JS, no deps. Uses event
+ * delegation so it picks up figures the client-side renderer creates
+ * after this script runs.
  *
- * Vanilla JS — drop into any layout. Pairs with the modal markup:
+ * Pair with assets/lightbox.html (the modal markup) and the CSS in
+ * assets/mermaid-styles.css.
  *
- *   <div id="mermaid-modal" class="mermaid-modal" role="dialog"
- *        aria-modal="true" aria-label="Diagram preview" hidden>
- *     <div class="mermaid-modal__backdrop" data-mermaid-close></div>
- *     <div class="mermaid-modal__panel">
- *       <div class="mermaid-modal__toolbar">
- *         <div class="mermaid-modal__group">
- *           <button class="mermaid-modal__btn"
- *                   data-mermaid-zoom="-0.25" aria-label="Zoom out">−</button>
- *           <span class="mermaid-modal__zoom-label"
- *                 data-mermaid-zoom-label>100%</span>
- *           <button class="mermaid-modal__btn"
- *                   data-mermaid-zoom="0.25" aria-label="Zoom in">+</button>
- *           <button class="mermaid-modal__btn"
- *                   data-mermaid-reset aria-label="Reset view">Reset</button>
- *         </div>
- *         <button class="mermaid-modal__btn"
- *                 data-mermaid-close aria-label="Close">✕</button>
- *       </div>
- *       <div class="mermaid-modal__viewport" data-mermaid-viewport>
- *         <div class="mermaid-modal__stage">
- *           <div class="mermaid-modal__svg-host" data-mermaid-svg-host></div>
- *         </div>
- *       </div>
- *     </div>
- *   </div>
- *
- * In Astro, wrap this in <script is:inline data-astro-rerun> so it survives
- * view-transition swaps.
+ * In Astro, wrap this in <script is:inline data-astro-rerun> so it
+ * survives view-transition swaps.
  */
 (function setupMermaidLightbox() {
   const modal = document.getElementById("mermaid-modal");
@@ -81,7 +57,6 @@
   function open(svgEl) {
     host.innerHTML = "";
     const clone = svgEl.cloneNode(true);
-    // Strip any width/height/style that pin the SVG to its natural size.
     clone.removeAttribute("width");
     clone.removeAttribute("height");
     clone.removeAttribute("style");
@@ -99,33 +74,47 @@
   }
 
   function activeSvgFor(figure) {
-    const isDark =
-      document.documentElement.getAttribute("data-theme") === "dark";
-    const visible = figure.querySelector(
-      isDark ? ".mermaid-dark svg" : ".mermaid-light svg"
-    );
-    return visible || figure.querySelector("svg");
+    return figure.querySelector("svg");
   }
 
-  document.querySelectorAll("figure.mermaid-wrap").forEach(figure => {
-    figure.setAttribute("role", "button");
-    figure.setAttribute("tabindex", "0");
-    figure.setAttribute("aria-label", "Open diagram in full view");
-
-    const trigger = () => {
-      const svg = activeSvgFor(figure);
-      if (svg) open(svg);
-    };
-
-    figure.addEventListener("click", trigger);
-    figure.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        trigger();
-      }
-    });
+  // Event delegation — picks up figures the client-side renderer
+  // creates dynamically after this script attaches.
+  function figureFromTarget(t) {
+    return t && t.closest ? t.closest("figure.mermaid-wrap") : null;
+  }
+  document.body.addEventListener("click", e => {
+    const figure = figureFromTarget(e.target);
+    if (!figure) return;
+    const svg = activeSvgFor(figure);
+    if (svg) open(svg);
+  });
+  document.body.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const figure = figureFromTarget(e.target);
+    if (!figure) return;
+    e.preventDefault();
+    const svg = activeSvgFor(figure);
+    if (svg) open(svg);
   });
 
+  // Tag figures with a11y attrs as they appear.
+  function tagFigure(node) {
+    node.setAttribute("role", "button");
+    node.setAttribute("tabindex", "0");
+    node.setAttribute("aria-label", "Open diagram in full view");
+  }
+  document.querySelectorAll("figure.mermaid-wrap").forEach(tagFigure);
+  new MutationObserver(records => {
+    for (const r of records) {
+      for (const node of r.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.matches && node.matches("figure.mermaid-wrap"))
+          tagFigure(node);
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // Modal controls.
   modal
     .querySelectorAll("[data-mermaid-close]")
     .forEach(el => el.addEventListener("click", close));
@@ -140,7 +129,7 @@
     .querySelector("[data-mermaid-reset]")
     ?.addEventListener("click", reset);
 
-  // Keyboard shortcuts while the modal is open.
+  // Keyboard shortcuts while modal is open.
   document.addEventListener("keydown", e => {
     if (modal.hasAttribute("hidden")) return;
     if (e.key === "Escape") close();

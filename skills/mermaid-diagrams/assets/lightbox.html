@@ -1,0 +1,51 @@
+<!--
+  Drop this once near the bottom of the page layout (above the closing
+  </body> or just before your closing layout component). It's a single
+  hidden modal that the lightbox script clones the active SVG into.
+-->
+<div
+  id="mermaid-modal"
+  class="mermaid-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Diagram preview"
+  hidden
+>
+  <div class="mermaid-modal__backdrop" data-mermaid-close></div>
+  <div class="mermaid-modal__panel">
+    <div class="mermaid-modal__toolbar">
+      <div class="mermaid-modal__group">
+        <button
+          type="button"
+          class="mermaid-modal__btn"
+          data-mermaid-zoom="-0.25"
+          aria-label="Zoom out"
+        >−</button>
+        <span class="mermaid-modal__zoom-label" data-mermaid-zoom-label>100%</span>
+        <button
+          type="button"
+          class="mermaid-modal__btn"
+          data-mermaid-zoom="0.25"
+          aria-label="Zoom in"
+        >+</button>
+        <button
+          type="button"
+          class="mermaid-modal__btn"
+          data-mermaid-reset
+          aria-label="Reset view"
+        >Reset</button>
+      </div>
+      <button
+        type="button"
+        class="mermaid-modal__btn"
+        data-mermaid-close
+        aria-label="Close"
+      >✕</button>
+    </div>
+    <div class="mermaid-modal__viewport" data-mermaid-viewport>
+      <div class="mermaid-modal__stage">
+        <div class="mermaid-modal__svg-host" data-mermaid-svg-host></div>
+      </div>
+    </div>
+  </div>
+</div>
