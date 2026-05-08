@@ -173,9 +173,26 @@ Also: avoid colons inside event text. Mermaid's timeline parser treats every `:`
 
 **About the dashed vertical connectors and downward arrowheads in `timeline`**: every `timeline` diagram renders period boxes on top, a horizontal axis arrow, dashed lines from each period down through its events, and an arrowhead at the bottom of each column. That's mermaid's native visual signature for timelines — and per the [official Mermaid timeline docs](https://mermaid.js.org/syntax/timeline.html), there is **no built-in option** to hide those connectors or arrowheads. The only theme variables exposed are `cScale0`–`cScale11` (background colors), `cScaleLabel0`–`cScaleLabel11` (foreground colors), and `disableMulticolor` (uniform vs per-period coloring).
 
-That makes `timeline` a **bad fit for a chronological narrative inside a longer post that uses other flowcharts** — the loose-ended dashed arrows clash visually with neighboring `flowchart` blocks, and there's no clean way to fix it.
+In prose-heavy posts the dashed connectors clash with neighboring `flowchart` blocks. **The fix is one CSS rule.** Add to whichever stylesheet ships the mermaid figure styles:
 
-**Strong recommendation for prose-heavy posts: use `flowchart LR` instead of `timeline`.** Each period becomes a node with a multi-line label (`<br/>` works in flowchart), and they chain with `-->` arrows. Same horizontal-narrative effect, no loose ends, visually consistent with the rest of the post:
+```css
+:is(figure.mermaid-wrap, .mermaid-modal) g.lineWrapper line[stroke-dasharray] {
+  stroke: transparent !important;
+  marker-end: none !important;
+}
+```
+
+Three details that matter:
+
+1. **`[stroke-dasharray]` attribute selector** isolates the orphan connectors. Mermaid emits both the dashed connector lines AND the solid horizontal axis line inside `<g class="lineWrapper">`. The dashed ones have `stroke-dasharray="5,5"`; the axis line doesn't. Targeting the attribute leaves the axis arrow intact.
+
+2. **`!important` is required.** Mermaid injects per-theme styles inline in the SVG `<defs>` at the same specificity as external CSS but later in cascade order. Without `!important` the rule computes through (verified: `getComputedStyle(line).stroke === 'rgb(52, 59, 88)'` instead of `transparent`).
+
+3. **Both the in-page figure AND the lightbox modal need the rule.** The modal renders the SVG outside the post-body wrapper, so a rule scoped to `figure.mermaid-wrap` alone misses it. `:is(figure.mermaid-wrap, .mermaid-modal)` covers both in one rule body — DRYer than two separate rules.
+
+If you're authoring a Pretext/Astro setup where styles live in a layered stylesheet, this rule must live OUTSIDE any `.app-prose`-style scope wrapper, since the modal isn't a descendant of the prose container.
+
+**When `flowchart LR` is still the better choice:** if the period/event distinction isn't load-bearing and you'd rather skip the timeline-specific affordances entirely. Each period becomes a node with a multi-line label (`<br/>` works in flowchart), chained with `-->`. No CSS hack required, and the diagram looks identical to your other flowcharts:
 
 ```mermaid
 flowchart LR
@@ -184,9 +201,7 @@ flowchart LR
   M0 --> M4 --> M6
 ```
 
-When `timeline` IS the right choice: standalone diagrams in slides or technical docs where the period/event distinction is the whole point and the dashed connector is the expected visual. Avoid it inside a post that already has 4+ flowcharts.
-
-If a user insists on keeping `timeline` and removing the connectors, the only path is CSS overrides on the rendered SVG. Selectors drift between mermaid versions; use browser devtools to find the right ones for the version pinned in `mermaid-client.ts` (current: 11.14.x).
+Pick `timeline` when you want the period-as-distinct-box visual; `flowchart LR` when you want to match the rest of a flowchart-heavy post.
 
 **Quick reference table** for what works in label text by diagram type:
 
