@@ -171,12 +171,22 @@ Each `: chunk` after the first becomes its own box stacked vertically under the 
 
 Also: avoid colons inside event text. Mermaid's timeline parser treats every `:` as a new-event separator, so `'SAP S/4HANA: supported'` becomes two events (`'SAP S/4HANA` and `supported'`). Drop the inner colon or replace with a dash/comma.
 
-**About the dashed vertical connectors in `timeline`**: every `timeline` diagram renders the period box on top, a dashed line with a downward arrow below it, and the event box(es) under the line. That's not a bug or a stray classDef artifact — it's mermaid's native visual signature for timelines, baked into the timeline renderer. If a user reports "there's a dotted line going through my diagram," that's the connector. To remove it (rarely worth doing), either:
+**About the dashed vertical connectors and downward arrowheads in `timeline`**: every `timeline` diagram renders period boxes on top, a horizontal axis arrow, dashed lines from each period down through its events, and an arrowhead at the bottom of each column. That's mermaid's native visual signature for timelines — and per the [official Mermaid timeline docs](https://mermaid.js.org/syntax/timeline.html), there is **no built-in option** to hide those connectors or arrowheads. The only theme variables exposed are `cScale0`–`cScale11` (background colors), `cScaleLabel0`–`cScaleLabel11` (foreground colors), and `disableMulticolor` (uniform vs per-period coloring).
 
-1. Switch to `flowchart LR` with explicit period and event nodes — you lose auto-stacking but gain full control over connectors.
-2. Override in `mermaid-styles.css`: `figure.mermaid-wrap .timeline .section path[class*="edge"], figure.mermaid-wrap .timeline line.section-edge { stroke: transparent }`. Selector names drift between mermaid versions; inspect the SVG to confirm.
+That makes `timeline` a **bad fit for a chronological narrative inside a longer post that uses other flowcharts** — the loose-ended dashed arrows clash visually with neighboring `flowchart` blocks, and there's no clean way to fix it.
 
-Default recommendation: keep the connector. It reads as "timeline" to readers and is the visual that distinguishes this diagram type from a horizontal flowchart.
+**Strong recommendation for prose-heavy posts: use `flowchart LR` instead of `timeline`.** Each period becomes a node with a multi-line label (`<br/>` works in flowchart), and they chain with `-->` arrows. Same horizontal-narrative effect, no loose ends, visually consistent with the rest of the post:
+
+```mermaid
+flowchart LR
+  M0["Month 0<br/>Truth is clean"]:::good
+  M4["Month 4<br/>First custom build"]:::catch
+  M0 --> M4 --> M6
+```
+
+When `timeline` IS the right choice: standalone diagrams in slides or technical docs where the period/event distinction is the whole point and the dashed connector is the expected visual. Avoid it inside a post that already has 4+ flowcharts.
+
+If a user insists on keeping `timeline` and removing the connectors, the only path is CSS overrides on the rendered SVG. Selectors drift between mermaid versions; use browser devtools to find the right ones for the version pinned in `mermaid-client.ts` (current: 11.14.x).
 
 **Quick reference table** for what works in label text by diagram type:
 
