@@ -107,7 +107,7 @@ To add a class name → slot mapping or change colors, see `references/customizi
 ## Authoring tips (for the user)
 
 - **Two unrelated graphs in one diagram render side-by-side** — split them into two separate ` ```mermaid ` blocks. Mermaid lays disconnected components horizontally regardless of `flowchart TB` orientation.
-- **`<br/>` in node labels works** — `Calls["Sales calls<br/>(transcripts)"]` renders as two lines.
+- **`<br/>` works in `flowchart` node labels but NOT in `timeline` events** — see Gotcha 7 below. `flowchart` labels render `<br/>` as a line break; `timeline` events render it as literal text.
 - **Avoid `\n` inside backtick markdown labels** — mermaid's parser renders `\n` as the literal letter `n` ("abetter" instead of "a / better"). The renderer strips this for you, but `<br/>` is cleaner if you author it.
 
 ## Gotchas (client-side specific — these still bite)
@@ -152,7 +152,46 @@ To add a class name → slot mapping or change colors, see `references/customizi
 
 **Fix**: The renderer uses `import(/* @vite-ignore */ MERMAID_CDN)` so Vite leaves it alone and the browser fetches it at runtime. Don't remove the comment.
 
-### 6. Theme toggle leaves diagrams in the old palette
+### 7. `<br/>` renders as literal text inside `timeline` events
+
+**Symptom**: A `timeline` diagram shows `Month 0 : Truth is clean<br/>'SAP supported'` with the `<br/>` printed verbatim in the rendered output instead of breaking the line. The two halves end up running together with `<br/>` visible.
+
+**Cause**: Mermaid's `timeline` diagram type does NOT pass event text through the HTML/foreignObject label pipeline that `flowchart` uses. Timeline events go through a plain-text renderer that escapes HTML. `<br/>` only works in node labels of the diagram types that use foreignObject (`flowchart`, `graph`, `classDiagram`, `stateDiagram`).
+
+**Fix**: Use mermaid's native multi-event syntax for timelines — extra `: text` separators stack as multiple boxes under the same period:
+
+```mermaid
+timeline
+  title Example
+  Month 0 : First event line : Second event line
+  Month 4 : Another period   : With two stacked items
+```
+
+Each `: chunk` after the first becomes its own box stacked vertically under the period. This is the equivalent of a line break in `timeline`.
+
+Also: avoid colons inside event text. Mermaid's timeline parser treats every `:` as a new-event separator, so `'SAP S/4HANA: supported'` becomes two events (`'SAP S/4HANA` and `supported'`). Drop the inner colon or replace with a dash/comma.
+
+**About the dashed vertical connectors in `timeline`**: every `timeline` diagram renders the period box on top, a dashed line with a downward arrow below it, and the event box(es) under the line. That's not a bug or a stray classDef artifact — it's mermaid's native visual signature for timelines, baked into the timeline renderer. If a user reports "there's a dotted line going through my diagram," that's the connector. To remove it (rarely worth doing), either:
+
+1. Switch to `flowchart LR` with explicit period and event nodes — you lose auto-stacking but gain full control over connectors.
+2. Override in `mermaid-styles.css`: `figure.mermaid-wrap .timeline .section path[class*="edge"], figure.mermaid-wrap .timeline line.section-edge { stroke: transparent }`. Selector names drift between mermaid versions; inspect the SVG to confirm.
+
+Default recommendation: keep the connector. It reads as "timeline" to readers and is the visual that distinguishes this diagram type from a horizontal flowchart.
+
+**Quick reference table** for what works in label text by diagram type:
+
+| Diagram type | `<br/>` | `\n` | Multi-line via `:` |
+|---|---|---|---|
+| `flowchart` / `graph` | ✅ | ❌ (renders as "n") | n/a |
+| `classDiagram` | ✅ | ❌ | n/a |
+| `stateDiagram` | ✅ | ❌ | n/a |
+| `sequenceDiagram` | ✅ (in `Note over`) | ❌ | n/a |
+| `timeline` | ❌ (literal text) | ❌ | ✅ (use this) |
+| `gantt` | ❌ | ❌ | n/a (single-line only) |
+| `pie` | ❌ | ❌ | n/a |
+| `journey` | ❌ | ❌ | n/a |
+
+### 8. Theme toggle leaves diagrams in the old palette
 
 **Symptom**: User clicks dark/light toggle; diagrams stay in the previous theme.
 
