@@ -1,0 +1,4 @@
+interface:
+  display_name: "Companion UX Reviewer"
+  short_description: "Test Companion flows through the native UI"
+  default_prompt: "Use $companion-ux-review to exercise this Companion workflow through Computer Use and report evidence-backed UX findings."

@@ -17,8 +17,10 @@ Symlink any skill into `~/.agents/skills/` (or `~/.claude/skills/`) so the agent
 
 ```sh
 ln -s ~/workspace/personal/agent-superpowers/skills/mermaid-diagrams ~/.agents/skills/mermaid-diagrams
+ln -s ~/workspace/personal/agent-superpowers/skills/companion-ux-review ~/.agents/skills/companion-ux-review
 ```
 
 ## Skills
 
 - **[mermaid-diagrams](skills/mermaid-diagrams/SKILL.md)** — build-time SSR mermaid for static sites with dual light/dark themes and a click-to-zoom lightbox. Reference implementation in Astro; pattern ports to any SSG.
+- **[companion-ux-review](skills/companion-ux-review/SKILL.md)** — exercise native Companion workflows through Computer Use and return evidence-backed usability, trust, and email-safety findings.
